@@ -118,7 +118,7 @@ The `organism` argument is a KEGG organism code. For example, human (hsa):
 ```{r pathway-map, eval=FALSE}
 # Fetches human pathway list and compound–pathway links via the KEGG REST API
 PathwayVsMetabolites <- fetch_kegg_pathway_metabolites(organism = "hsa")
-
+```
 # Case study
 
 This case study uses human KEGG pathway maps and compound names retrieved via
@@ -170,7 +170,7 @@ results <- enrichmet(
     kegg_lookup = kegg_lookup,
     reactome_df = reactome_df,
     top_n = 20,
-    p_value_cutoff = 0.05,
+    p_value_cutoff = 0.5,
     network_top_n = 10,
     heatmap_top_n = 20,
     membership_top_n = 20,
@@ -324,6 +324,110 @@ results_da <- enrichmet(
 ```
 
 When `da_results` is supplied, metabolites are by default restricted to those that meet a **statistical significance** threshold (e.g. adjusted *p*-value). Optionally, users can select metabolites of interest using custom **fold-change** and **p-value** cutoffs from the summary statistics, or pass an explicit `inputMetabolites` vector.
+
+# Using a SummarizedExperiment as input
+
+enrichmet() offers an optional, alternative way to supply differential results. Users who already keep their metabolomics data in a SummarizedExperiment do not need to extract a standalone statistics table before running pathway analysis. Instead, the required columns can be read directly from rowData() and passed to the existing da_results interface. This keeps the differential statistics in a single location, the SummarizedExperiment, while enrichmet() continues to use its standard da_results argument for enrichment, MetSEA, centrality, and visualisation. Users who prefer to pass a plain da_out object from run_de() can continue to do so; the two paths are fully interchangeable.
+
+The following rowData() columns are used:
+
+met_id is the metabolite identifier (KEGG ID, name, or mixed; governed by input_type);
+
+log2fc is the log2 fold change, used for MetSEA ranking;
+
+pval or padj provide statistical significance, used to select the query set;
+
+optionally ave_expr and Significant, preserved for downstream use.
+
+```{r summarizedExperiment, message=TRUE}
+library(SummarizedExperiment)
+
+# -------------------------------------------------------------------
+# 1. Example abundance matrix
+# -------------------------------------------------------------------
+metabolomics_path <- system.file(
+    "extdata", "example_data.csv",
+    package = "enrichmet"
+)
+
+metabolomics_mat <- read.csv(
+    metabolomics_path,
+    row.names = 1,
+    check.names = FALSE
+)
+
+# -------------------------------------------------------------------
+# 2. Differential analysis
+# -------------------------------------------------------------------
+da_out <- run_de(
+    metabolomics_mat,
+    "TK-CMV",
+    "K-CMV",
+    fc_threshold   = 1,
+    pval_threshold = 0.05
+)
+
+# -------------------------------------------------------------------
+# 3. Store differential statistics in a SummarizedExperiment
+# -------------------------------------------------------------------
+kept     <- da_out$full_results$met_id
+mat_kept <- metabolomics_mat[kept, , drop = FALSE]
+
+se <- SummarizedExperiment(
+    assays  = list(counts = mat_kept),
+    rowData = DataFrame(da_out$full_results)
+)
+
+# -------------------------------------------------------------------
+# 4. Rebuild da_results from the SummarizedExperiment alone
+# -------------------------------------------------------------------
+da_out_from_se <- da_results_from_se(
+    se,
+    fc_threshold      = 1,
+    pval_threshold    = 0.05,
+    split_complex_ids = TRUE
+)
+
+str(da_out_from_se)
+
+# -------------------------------------------------------------------
+# 5. Run enrichmet using only the SE derived object
+# -------------------------------------------------------------------
+PathwayVsMetabolites <- fetch_kegg_pathway_metabolites(organism = "hsa")
+kegg_lookup          <- fetch_kegg_compound_lookup()
+reactome_df          <- fetch_kegg_reactome(
+    kegg_ids = extract_kegg_ids(PathwayVsMetabolites),
+    species  = "Homo sapiens"
+)
+
+results_da <- enrichmet(
+    inputMetabolites          = NULL,
+    PathwayVsMetabolites      = PathwayVsMetabolites,
+    da_results                = da_out_from_se,
+    example_data              = example_data,
+    kegg_lookup               = kegg_lookup,
+    reactome_df               = reactome_df,
+    top_n                     = 20,
+    p_value_cutoff            = 1,
+    network_top_n             = 10,
+    heatmap_top_n             = 20,
+    membership_top_n          = 20,
+    min_pathway_occurrence    = 2,
+    min_metabolite_occurrence = 1
+)
+```
+The SummarizedExperiment interface is intended for users who already keep
+their metabolomics data in a Bioconductor container and want to avoid
+converting to and from plain data frames. The same input_type options
+("kegg", "name", "mixed") apply to the identifiers found in
+rowData().
+
+
+
+
+
+
+
 
 # Application to a lipid pathway map
 

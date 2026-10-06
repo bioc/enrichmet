@@ -103,7 +103,7 @@ NULL
 #'
 #' Input can be KEGG compound IDs, metabolite names, or a mix of both (controlled by
 #' \code{input_type}). Name mapping uses \code{kegg_lookup} (e.g. from
-#' \code{\link{fetch_kegg_compound_lookup}}) and matches the behaviour of the Shiny app.
+#' \code{\link{fetch_kegg_compound_lookup}}) 
 #'
 #' @param inputMetabolites A character vector of metabolite identifiers and/or names,
 #'        or a data frame from \code{run_de()$kegg_ready}. For \code{input_type = "kegg"}
@@ -162,7 +162,6 @@ NULL
 #'                KEGG IDs via \code{kegg_lookup}.
 #'          \item \code{"mixed"} keep valid KEGG IDs and map the rest as names.
 #'        }
-#'        Same behaviour as the Shiny app input-type control.
 #'
 #' @return A list containing results from the specified analyses. Possible components:
 #' \itemize{
@@ -464,7 +463,7 @@ enrichmet <- function(inputMetabolites = NULL,
         stop("Either inputMetabolites or da_results must be provided")
     }
     
-    # ---- Name / mixed KEGG (consistent with Shiny app) ----
+    # ---- Name / mixed KEGG  ----
     if (is.character(metabolites_to_use)) {
         if (input_type %in% c("name", "mixed")) {
             metabolites_to_use <- map_names_to_kegg(metabolites_to_use, kegg_lookup)

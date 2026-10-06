@@ -13,7 +13,7 @@ run_de(
   fc_threshold = 1,
   pval_threshold = 0.05,
   min_samples = 3,
-  split_complex_ids = TRUE
+  split_complex_ids = FALSE
 )
 }
 \arguments{

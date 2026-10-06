@@ -67,7 +67,7 @@
 #' @export
 run_de <- function(df, group1_pattern, group2_pattern, plot_volcano = TRUE, 
                    top_n_labels = 20, fc_threshold = 1, pval_threshold = 0.05,
-                   min_samples = 3, split_complex_ids = TRUE) {
+                   min_samples = 3, split_complex_ids = FALSE) {   # default changed to FALSE
     
     # Input validation
     if (!is.data.frame(df) && !is.matrix(df)) {
@@ -271,92 +271,70 @@ run_de <- function(df, group1_pattern, group2_pattern, plot_volcano = TRUE,
                 )
             )
         
-        # FIXED: Use proper message with character strings, not ggplot object
         message("Volcano plot created successfully")
         message("Total significant metabolites: ", total_significant)
         message("  Up-regulated: ", up_count)
         message("  Down-regulated: ", down_count)
     }
     
-    # Create KEGG-ready data frame
+    # ------------------------------------------------------------------
+    # FIXED: KEGG ID extraction – always keep ONLY the first valid ID
+    # (consistent with perform_gsea_analysis). Never duplicate statistics.
+    # ------------------------------------------------------------------
     res_kegg <- res_df
     
-    if (split_complex_ids) {
-        # Split complex KEGG IDs and create multiple rows
-        kegg_list <- list()
+    # Helper that extracts the first valid KEGG ID (same logic as GSEA)
+    extract_first_kegg <- function(met_id) {
+        if (is.na(met_id) || met_id == "") return(NA_character_)
         
-        for (i in seq_len(nrow(res_kegg))) {
-            met_id <- res_kegg$met_id[i]
-            
-            # Extract ALL KEGG IDs from the metabolite ID
-            all_kegg_ids <- character(0)
-            
-            # Method 1: Extract after last underscore
-            if (grepl("_", met_id)) {
-                last_part <- sub(".*_", "", met_id)
-                all_kegg_ids <- unlist(strsplit(last_part, "\\|"))
-            } 
-            # Method 2: Direct KEGG ID format
-            else if (grepl("^C\\d+", met_id)) {
-                all_kegg_ids <- unlist(strsplit(met_id, "\\|"))
-            }
-            
-            # Trim whitespace from extracted KEGG IDs
-            all_kegg_ids <- trimws(all_kegg_ids)
-            
-            # Remove empty strings and duplicates
-            all_kegg_ids <- unique(all_kegg_ids[
-                all_kegg_ids != "" & grepl("^C\\d+", all_kegg_ids)
-            ])
-            
-            if (length(all_kegg_ids) > 0) {
-                # Create a row for each KEGG ID
-                for (kegg_id in all_kegg_ids) {
-                    new_row <- res_kegg[i, ]
-                    new_row$kegg_id <- kegg_id
-                    kegg_list[[length(kegg_list) + 1]] <- new_row
-                }
-            }
-        }
+        # Already clean
+        if (grepl("^C\\d{5}$", met_id)) return(met_id)
         
-        if (length(kegg_list) > 0) {
-            res_kegg <- do.call(rbind, kegg_list)
-            rownames(res_kegg) <- NULL
-            message("Split complex KEGG IDs: ", nrow(res_df), 
-                    " original rows -> ", nrow(res_kegg), " KEGG ID rows")
+        # Complex formats: take everything after last underscore, then first ID
+        if (grepl("_", met_id)) {
+            last_part <- sub(".*_", "", met_id)
+            candidates <- unlist(strsplit(last_part, "\\|"))
         } else {
-            res_kegg$kegg_id <- NA_character_
-            res_kegg <- res_kegg[!is.na(res_kegg$kegg_id), ]
+            candidates <- unlist(strsplit(met_id, "\\|"))
         }
         
-    } else {
-        # Original method - take first KEGG ID only (using vapply instead of sapply)
-        res_kegg$kegg_id <- vapply(
-            strsplit(res_kegg$met_id, "_"),
-            function(x) {
-                # Extract KEGG IDs
-                kegg_candidates <- grep("^C\\d+", x, value = TRUE)
-                if (length(kegg_candidates) > 0) {
-                    # Take the first KEGG ID found and trim whitespace
-                    trimws(kegg_candidates[1])
-                } else {
-                    other_kegg <- grep("^C\\d{5}$", x, value = TRUE)
-                    if (length(other_kegg) > 0) {
-                        trimws(other_kegg[1])
-                    } else {
-                        NA_character_
-                    }
-                }
-            },
-            FUN.VALUE = character(1)
-        )
+        candidates <- trimws(candidates)
+        valid <- candidates[grepl("^C\\d+", candidates)]
         
-        res_kegg <- res_kegg[!is.na(res_kegg$kegg_id), ]
-        rownames(res_kegg) <- NULL
+        if (length(valid) > 0) {
+            return(valid[1])          # ALWAYS first only
+        }
+        return(NA_character_)
     }
     
-    # Trim whitespace from all kegg_id values
-    res_kegg$kegg_id <- trimws(res_kegg$kegg_id)
+    res_kegg$kegg_id <- vapply(res_kegg$met_id, extract_first_kegg, 
+                               FUN.VALUE = character(1))
+    
+    # Warn if complex IDs were present
+    complex_present <- any(grepl("\\|", res_df$met_id), na.rm = TRUE)
+    if (complex_present) {
+        warning(
+            "Complex KEGG IDs (containing '|') detected. ",
+            "Only the FIRST valid KEGG ID is retained for each metabolite ",
+            "to preserve independence assumptions of Fisher's exact test and GSEA. ",
+            "Secondary IDs are discarded."
+        )
+    }
+    
+    # Remove rows without a valid KEGG ID
+    res_kegg <- res_kegg[!is.na(res_kegg$kegg_id) & res_kegg$kegg_id != "", ]
+    rownames(res_kegg) <- NULL
+    
+    # Optional: if user still sets split_complex_ids = TRUE we now ignore it
+    # and issue a message (parameter kept for backward compatibility)
+    if (isTRUE(split_complex_ids)) {
+        message(
+            "Note: split_complex_ids = TRUE is ignored. ",
+            "Duplication of statistics is no longer performed ",
+            "(it violated independence assumptions). ",
+            "Only the first KEGG ID is kept."
+        )
+    }
     
     # Summary statistics
     summary_stats <- list(
@@ -368,7 +346,7 @@ run_de <- function(df, group1_pattern, group2_pattern, plot_volcano = TRUE,
         group2_samples = length(g2_cols),
         fc_threshold = fc_threshold,
         pval_threshold = pval_threshold,
-        split_complex_ids = split_complex_ids,
+        split_complex_ids = FALSE,          # always FALSE now
         unique_kegg_ids = length(unique(res_kegg$kegg_id))
     )
     
@@ -383,7 +361,6 @@ run_de <- function(df, group1_pattern, group2_pattern, plot_volcano = TRUE,
         results_list$volcano_plot <- volcano_obj
     }
     
-    # Add final success message
     message("Differential analysis completed successfully")
     message("Total metabolites analyzed: ", nrow(res_df))
     message("Significant metabolites (FDR < ", pval_threshold, 

@@ -4,13 +4,23 @@
 \alias{fetch_kegg_pathway_metabolites}
 \title{Fetch KEGG pathway-metabolite relationships}
 \usage{
-fetch_kegg_pathway_metabolites(organism = "hsa", clean_pathway_names = TRUE)
+fetch_kegg_pathway_metabolites(
+  organism = "hsa",
+  clean_pathway_names = TRUE,
+  metaboanalyst_style = TRUE
+)
 }
 \arguments{
 \item{organism}{Character. KEGG organism code. Default is \code{"hsa"}.}
 
 \item{clean_pathway_names}{Logical. If TRUE, KEGG organism information
 is removed from pathway names.}
+
+\item{metaboanalyst_style}{Logical. If TRUE (default), apply a
+MetaboAnalyst-style filter that keeps metabolic pathway maps
+(numeric IDs < 2000) and excludes Global (011xx) and Overview
+(012xx) maps. If FALSE, all pathways returned for the organism
+are retained.}
 }
 \value{
 A data frame with columns \code{PathwayID}, \code{Pathway},
@@ -21,9 +31,7 @@ Downloads KEGG pathway and compound relationship data and returns
 pathway-level metabolite mappings via the public KEGG REST API.
 }
 \examples{
-
 PathwayVsMetabolites <- fetch_kegg_pathway_metabolites(organism = "hsa")
 head(PathwayVsMetabolites)
-
 
 }

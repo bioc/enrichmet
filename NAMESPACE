@@ -9,6 +9,7 @@ export(create_impact_plot)
 export(create_interaction_plot)
 export(create_membership_plot)
 export(create_network_plot)
+export(da_results_from_se)
 export(enrichmet)
 export(extract_kegg_ids)
 export(extract_measured_kegg_ids)
@@ -27,6 +28,10 @@ export(run_de)
 import(dplyr)
 import(tidyr)
 importFrom(ComplexHeatmap,Heatmap)
+importFrom(SummarizedExperiment,
+  SummarizedExperiment,
+  rowData
+)
 importFrom(circlize,colorRamp2)
 importFrom(dplyr,
   arrange,
@@ -92,6 +97,7 @@ importFrom(limma,
   makeContrasts,
   topTable
 )
+importFrom(methods,is)
 importFrom(scales,rescale)
 importFrom(stats,
   aggregate,

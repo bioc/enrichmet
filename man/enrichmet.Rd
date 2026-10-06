@@ -118,8 +118,7 @@ If \code{NULL}, the full pathway database is used.}
   \item \code{"name"} treat entries as metabolite names and map them to
         KEGG IDs via \code{kegg_lookup}.
   \item \code{"mixed"} keep valid KEGG IDs and map the rest as names.
-}
-Same behaviour as the Shiny app input-type control.}
+}}
 }
 \value{
 A list containing results from the specified analyses. Possible components:
@@ -149,7 +148,7 @@ be run as a complete workflow or using individual analysis steps.
 \details{
 Input can be KEGG compound IDs, metabolite names, or a mix of both (controlled by
 \code{input_type}). Name mapping uses \code{kegg_lookup} (e.g. from
-\code{\link{fetch_kegg_compound_lookup}}) and matches the behaviour of the Shiny app.
+\code{\link{fetch_kegg_compound_lookup}})
 
 
 This function performs comprehensive pathway analysis for metabolomics data.
