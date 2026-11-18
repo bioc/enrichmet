@@ -11,3 +11,14 @@
 doc/
 output.gmt
 
+# R CMD check / build artifacts
+*.Rcheck/
+.Rcheck/
+..Rcheck/
+full_build.log
+
+# diagnostic output folders
+enrichmet_diagnostics_*/
+
+# macOS
+.DS_Store
